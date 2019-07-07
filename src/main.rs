@@ -28,31 +28,22 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         let entry = entry?;
         let path = entry.path();
 
-        let contents = fs::read_to_string(path)
-        .expect("Something went wrong reading the file");
-        
+        let contents = fs::read_to_string(path).unwrap();
         reviews.push(contents);
-        // println!("{:?}", r);
     }
     for entry in fs::read_dir("./aclImdb/train/neg")? {
         let entry = entry?;
         let path = entry.path();
 
-        let contents = fs::read_to_string(path)
-        .expect("Something went wrong reading the file");
-        
+        let contents = fs::read_to_string(path).unwrap();
         reviews.push(contents);
-        // println!("{:?}", r);
     }
     for entry in fs::read_dir("./aclImdb/test/pos")? {
         let entry = entry?;
         let path = entry.path();
 
-        let contents = fs::read_to_string(path)
-        .expect("Something went wrong reading the file");
-        
+        let contents = fs::read_to_string(path).unwrap();
         reviews.push(contents);
-        // println!("{:?}", r);
     }
     for entry in fs::read_dir("./aclImdb/test/neg")? {
         let entry = entry?;
@@ -60,9 +51,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
         let contents = fs::read_to_string(path)
         .expect("Something went wrong reading the file");
-        
         reviews.push(contents);
-        // println!("{:?}", r);
     }
     println!("read finished {}", now.elapsed().as_secs_f32());
     let now = Instant::now();
@@ -71,16 +60,12 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     println!("concat finished {}", now.elapsed().as_secs_f32());
     let now = Instant::now();
 
-    let r = word_count(&reviews);
+    let _r = word_count(&reviews);
     println!("count finished {}", now.elapsed().as_secs_f32());
 
     Ok(())
 }
 
 fn main() {
-   
-
     run().unwrap();
-
-    
 }
