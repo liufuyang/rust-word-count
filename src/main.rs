@@ -30,7 +30,7 @@ fn main() {
     println!("number of maps: {}", maps.len());
 
     // run parallel to reduce into a single map
-    let result = maps.into_par_iter().reduce_with(merge_maps).unwrap();
+    let result = maps.into_par_iter().reduce_with(merge_maps).unwrap(); // https://docs.rs/rayon/1.1.0/rayon/iter/trait.ParallelIterator.html#method.reduce_with
     println!("number of unique words: {}", result.len());
 
     println!("count finished {}", now.elapsed().as_secs_f32());
