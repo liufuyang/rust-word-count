@@ -2,13 +2,16 @@
 use std::time::Instant;
 use std::fs;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::thread;
 
-pub fn count_words(mut hash_map: HashMap<String, u32>, word: String) -> HashMap<String, u32> {
+use crossbeam::crossbeam_channel::{bounded, Sender, Receiver};
+
+fn count(mut hash_map: HashMap<String, u32>, word: String) -> HashMap<String, u32> {
     {
         let c = hash_map.entry(word).or_insert(0);
         *c += 1;
     }
-
     hash_map
 }
 
@@ -16,56 +19,63 @@ pub fn word_count(sentence: &str) -> HashMap<String, u32> {
     sentence.split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())
         .map(|w| w.to_lowercase())
-        .fold(HashMap::new(), count_words)
+        .fold(HashMap::new(), count)
 }
 
-pub fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let now = Instant::now();
-
-    let mut reviews = Vec::new();
-
-    for entry in fs::read_dir("./aclImdb/train/pos")? {
-        let entry = entry?;
+fn gen_paths(sender: Sender<PathBuf>) {
+    for entry in fs::read_dir("./aclImdb/train/pos").unwrap() {
+        let entry = entry.unwrap();
         let path = entry.path();
-
-        let contents = fs::read_to_string(path).unwrap();
-        reviews.push(contents);
+        sender.send(path).unwrap();
     }
-    for entry in fs::read_dir("./aclImdb/train/neg")? {
-        let entry = entry?;
+    for entry in fs::read_dir("./aclImdb/train/neg").unwrap() {
+        let entry = entry.unwrap();
         let path = entry.path();
-
-        let contents = fs::read_to_string(path).unwrap();
-        reviews.push(contents);
+        sender.send(path).unwrap();
     }
-    for entry in fs::read_dir("./aclImdb/test/pos")? {
-        let entry = entry?;
+    for entry in fs::read_dir("./aclImdb/test/pos").unwrap() {
+        let entry = entry.unwrap();
         let path = entry.path();
-
-        let contents = fs::read_to_string(path).unwrap();
-        reviews.push(contents);
+        sender.send(path).unwrap();
     }
-    for entry in fs::read_dir("./aclImdb/test/neg")? {
-        let entry = entry?;
+    for entry in fs::read_dir("./aclImdb/test/neg").unwrap() {
+        let entry = entry.unwrap();
         let path = entry.path();
-
-        let contents = fs::read_to_string(path)
-        .expect("Something went wrong reading the file");
-        reviews.push(contents);
+        sender.send(path).unwrap();
     }
-    println!("read finished {}", now.elapsed().as_secs_f32());
-    let now = Instant::now();
+    drop(sender); // end of sending, close the channel
+}
 
-    let reviews = &reviews[..].concat();
-    println!("concat finished {}", now.elapsed().as_secs_f32());
-    let now = Instant::now();
-
-    let _r = word_count(&reviews);
-    println!("count finished {}", now.elapsed().as_secs_f32());
-
-    Ok(())
+fn read_and_count(
+    chan_path_r: Receiver<PathBuf>, 
+    chan_map_s: Sender<HashMap<String, u32>>) {
+    while let Ok(path) = chan_path_r.recv() {
+        let contents = fs::read_to_string(path).expect("file reading error");
+        let map = word_count(contents.as_ref());
+        chan_map_s.send(map).unwrap();
+    }
+    drop(chan_map_s); // end of sending, close the channel
 }
 
 fn main() {
-    run().unwrap();
+    let now = Instant::now();
+
+    let (chan_path_s, chan_path_r) = bounded(100);
+    let (chan_map_s, chan_map_r) = bounded(100);
+    
+    thread::spawn(|| gen_paths(chan_path_s));
+
+    for _ in 0..8{
+        let r = chan_path_r.clone();
+        let s = chan_map_s.clone();
+        thread::spawn(|| read_and_count(r, s));
+    }
+    drop(chan_map_s); // close map channel from main thread
+    
+
+    let v: Vec<_> = chan_map_r.iter().collect();
+
+    println!("{}", v.len());
+
+    println!("count finished {}", now.elapsed().as_secs_f32());
 }
